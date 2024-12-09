@@ -22,10 +22,10 @@ suppressPackageStartupMessages({
 
 # fonts -------------------------------------------------------------------
 
-font_import(
-  paths = "~/Downloads/spotifymix",
-  prompt = FALSE
-)
+# font_import(
+#   paths = "data/",
+#   prompt = FALSE
+# )
 
 spotify_mix <- filter(
   system_fonts(),
@@ -176,6 +176,7 @@ dat <- hist_dat %>%
     is.na(episode_name) | is.na(episode_show_name)
   ) %>% 
   mutate(
+    ts = as_datetime(ts),
     min = ms_played / 6e4
   ) %>% 
   select(
@@ -267,7 +268,7 @@ plot_artist_all_bar <- dat %>%
   ) +
   coord_flip() + 
   labs(
-    title = "My Most Played Artists (2024)",
+    title = "Most Played Artists (2024)",
     y = "Minutes Played",
     x = NULL, 
     fill = NULL
@@ -307,7 +308,7 @@ plot_album_all_bar <- dat %>%
   head(10) %>% 
   ungroup() %>% 
   mutate(
-    album = glue("{album}<br>_({artist})_"),
+    album = glue("{album}<br>({artist})"),
     album = as_factor(album),
     hjust = ifelse(row_number() <= 1, 1.25, -0.25)
   ) %>% 
@@ -340,7 +341,7 @@ plot_album_all_bar <- dat %>%
   ) +
   coord_flip() + 
   labs(
-    title = "My Most Played Albums (2024)",
+    title = "Most Played Albums (2024)",
     y = "Minutes Played",
     x = NULL, 
     fill = NULL
@@ -406,7 +407,7 @@ plot_track_all_bar <- dat %>%
   ) +
   coord_flip() + 
   labs(
-    title = "My Most Played Tracks (2024)",
+    title = "Most Played Tracks (2024)",
     y = "Times Played",
     x = NULL, 
     fill = NULL
@@ -425,4 +426,69 @@ plot_track_all_bar
 save_plot(
   plot = plot_track_all_bar,
   filename = "plots/03_track_all_bar.png"
+)
+
+# time bar/polar ----------------------------------------------------------
+
+plot_hour_all_bar <- dat %>%
+  mutate(
+    ts = with_tz(ts, "EST"),
+    hour = hour(ts),
+    year = year(ts),
+  ) %>%
+  group_by(year, hour) %>%
+  summarise(totalMin = sum(min)) %>%
+  filter(year > 2014) %>%
+  complete(hour = 0:23) %>%
+  ggplot(aes(x = hour, y = totalMin)) +
+  geom_col(
+    mapping = aes(fill = totalMin),
+    color = "black"
+  ) +
+  scale_fill_gradient(
+    low = spotify_black,
+    high = spotify_green,
+    guide = "none"
+  ) +
+  scale_x_continuous(
+    breaks = 0:23,
+    minor_breaks = NULL
+  ) +
+  scale_y_continuous(
+    labels = label_comma(),
+    n.breaks = 10
+  ) +
+  labs(
+    title = "Listening Time By Hour (2024)",
+    x = "Hour",
+    y = "Minutes"
+  ) +
+  theme_classic() +
+  theme(
+    text = element_text(family = "Spotify Mix"),
+    plot.title = element_text(face = "bold", size = 20),
+    legend.position = "none",
+    axis.title.x = element_text(margin = margin(t = 10))
+  )
+
+plot_hour_all_bar
+
+save_plot(
+  plot = plot_hour_all_bar,
+  filename = "plots/04_hour_all_bar.png"
+)
+
+# -------------------------------------------------------------------------
+
+p <- plot_artist_all_bar / 
+  plot_album_all_bar / 
+  plot_track_all_bar /
+  plot_hour_all_bar
+
+ggsave(
+  filename = "plots/combined.png",
+  plot = p,
+  height = 20,
+  width = 9,
+  dpi = 300
 )
